@@ -58,8 +58,7 @@ public class NetClient : MonoBehaviour
     public void SendLine(string json)
     {
         if (!IsConnected) return;
-
-        // Дуже важливо: \n в кінці, бо сервер читає readLine()
+        
         string line = json + "\n";
         byte[] bytes = Encoding.UTF8.GetBytes(line);
 

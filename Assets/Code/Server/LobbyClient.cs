@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using UnityEngine;
 
 [Serializable]
@@ -27,15 +28,13 @@ public class LobbyClient : MonoBehaviour
     public string matchId;
     public bool inMatch;
 
+    public UnitsClientWorld world;
+    
     private void Awake()
     {
         MainThreadDispatcher.EnsureExists();
-
-        if (net == null)
-            net = GetComponent<NetClient>();
-
-        if (net == null)
-            Debug.LogError("LobbyClient: NetClient not assigned and not found on same GameObject!");
+        if (net == null) net = GetComponent<NetClient>();
+        if (world == null) world = FindObjectOfType<UnitsClientWorld>();
     }
 
     private void Start()
@@ -96,17 +95,26 @@ public class LobbyClient : MonoBehaviour
         SendLine("{\"type\":\"set_ready\",\"ready\":" + (ready ? "true" : "false") + "}");
     }
 
-    public void CmdMove(int unitId, float x, float y)
+    /*public void CmdMove(int unitId, float x, float y)
     {
         SendLine("{\"type\":\"cmd_move\",\"unitId\":" + unitId + ",\"x\":" + x + ",\"y\":" + y + "}");
+    }*/
+    
+    public void CmdMove(int unitId, float x, float y)
+    {
+        string xs = x.ToString(CultureInfo.InvariantCulture);
+        string ys = y.ToString(CultureInfo.InvariantCulture);
+
+        SendLine("{\"type\":\"cmd_move\",\"unitId\":" + unitId +
+                 ",\"x\":" + xs +
+                 ",\"y\":" + ys + "}");
     }
 
     public void CmdEndMatch()
     {
         SendLine("{\"type\":\"cmd_end_match\"}");
     }
-
-    // Small wrapper so Update() stays clean
+    
     private void SendLine(string json)
     {
         if (net == null) return;
@@ -133,6 +141,18 @@ public class LobbyClient : MonoBehaviour
 
     private void HandleLine(string json)
     {
+        
+        if (json.Contains("\"type\":\"state\""))
+        {
+            // JsonUtility нормально парсить масиви, якщо структура проста і поля збігаються по іменам
+            var msg = JsonUtility.FromJson<StateMsg>(json);
+            if (msg != null)
+            {
+                world?.ApplyState(msg);
+            }
+            return;
+        }
+        
         // hello
         if (json.Contains("\"type\":\"hello\""))
         {
@@ -180,7 +200,6 @@ public class LobbyClient : MonoBehaviour
         // state (ticks)
         if (json.Contains("\"type\":\"state\""))
         {
-            // щоб не спамити консоль на кожен тик, можна закоментити
             // Debug.Log("State: " + json);
             return;
         }

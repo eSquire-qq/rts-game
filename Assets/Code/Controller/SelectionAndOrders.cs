@@ -11,16 +11,16 @@ public sealed class SelectionAndOrders : MonoBehaviour
     [SerializeField] private Camera cam;
     [SerializeField] private GameSimulation sim;
     [SerializeField] private SelectionBoxView boxView;
+    [SerializeField] private LobbyClient lobby; // optional
 
     [Header("Layer masks")]
     [SerializeField] private LayerMask unitMask;
     [SerializeField] private LayerMask groundMask;
 
     [Header("Selection")]
-    [SerializeField] private float dragThresholdPixels = 10f; // скільки треба “протягнути”, щоб це вважалось drag
+    [SerializeField] private float dragThresholdPixels = 10f;
 
-    // Поточне виділення (мульти)
-    private readonly List<EntityId> selected = new();
+    private readonly List<int> selectedIds = new();
     private readonly List<SelectionVisual> selectedVisuals = new();
 
     private bool isDragging;
@@ -29,102 +29,83 @@ public sealed class SelectionAndOrders : MonoBehaviour
     private void Awake()
     {
         if (cam == null) cam = Camera.main;
+        if (sim == null) sim = FindFirstObjectByType<GameSimulation>();
+        if (lobby == null) lobby = FindFirstObjectByType<LobbyClient>();
     }
 
     private void Update()
     {
-        // --- ЛКМ down ---
         if (LeftDown())
         {
             isDragging = true;
             dragStartScreen = GetMouseScreen();
-
             boxView?.Begin(dragStartScreen);
         }
 
-        // --- ЛКМ hold ---
         if (isDragging && LeftHeld())
         {
-            Vector2 current = GetMouseScreen();
-
-            // якщо ще не пройшли поріг — рамку можемо не показувати (але ми вже її показали; ок)
-            boxView?.UpdateBox(current);
+            boxView?.UpdateBox(GetMouseScreen());
         }
 
-        // --- ЛКМ up ---
         if (isDragging && LeftUp())
         {
             isDragging = false;
-
             Vector2 end = GetMouseScreen();
             boxView?.End();
 
             float dragDist = Vector2.Distance(dragStartScreen, end);
-
-            if (dragDist < dragThresholdPixels)
-            {
-                // Клік — вибір одного
-                SelectSingleAtScreen(end);
-            }
-            else
-            {
-                // Drag — рамка
-                SelectBox(dragStartScreen, end);
-            }
+            if (dragDist < dragThresholdPixels) SelectSingleAtScreen(end);
+            else SelectBox(dragStartScreen, end);
         }
 
-        // --- ПКМ: наказ руху ---
         if (RightDown())
         {
             IssueMove();
         }
-        
-        // testing selection box
-        if (LeftDown())
-            Debug.Log("LeftDown in GAME coords: " + GetMouseScreen());
-
     }
 
-    // ---------------------- Selection ----------------------
+    // ---------------- Selection ----------------
 
     private void SelectSingleAtScreen(Vector2 screenPos)
     {
+        if (cam == null) return;
+
         Vector2 world = cam.ScreenToWorldPoint(screenPos);
         Collider2D hit = Physics2D.OverlapPoint(world, unitMask);
 
         ClearSelection();
-
         if (!hit) return;
 
-        var id = hit.GetComponent<EntityId>();
-        if (id == null) return;
+        // ✅ беремо EntityId з юніта
+        var eid = hit.GetComponentInParent<EntityId>();
+        if (eid == null) return;
 
-        AddToSelection(id);
-        // Debug.Log($"Selected 1: {id.Id}");
+        AddToSelection(eid.Id, hit.GetComponentInParent<SelectionVisual>());
     }
 
     private void SelectBox(Vector2 startScreen, Vector2 endScreen)
     {
-        Rect rect = RectFromScreenPoints(startScreen, endScreen);
+        if (cam == null) return;
 
+        Rect rect = RectFromScreenPoints(startScreen, endScreen);
         ClearSelection();
 
-        // Простіше і стабільніше для старту:
-        // Беремо всі юніти на сцені і перевіряємо, чи їх screen point в прямокутнику.
-        foreach (var entity in FindObjectsByType<EntityId>(FindObjectsSortMode.None))
+        var allColliders = FindObjectsByType<Collider2D>(FindObjectsSortMode.None);
+        foreach (var col in allColliders)
         {
-            // фільтруємо тільки юніти по layer mask
-            int layer = entity.gameObject.layer;
+            if (col == null) continue;
+
+            int layer = col.gameObject.layer;
             if ((unitMask.value & (1 << layer)) == 0) continue;
 
-            Vector3 screen = cam.WorldToScreenPoint(entity.transform.position);
-            if (rect.Contains(screen))
-            {
-                AddToSelection(entity);
-            }
-        }
+            Vector3 sp = cam.WorldToScreenPoint(col.transform.position);
+            if (!rect.Contains(sp)) continue;
 
-        // Debug.Log($"Selected box: {selected.Count}");
+            var eid = col.GetComponentInParent<EntityId>();
+            if (eid == null) continue;
+
+            AddToSelection(eid.Id, col.GetComponentInParent<SelectionVisual>());
+        }
     }
 
     private Rect RectFromScreenPoints(Vector2 a, Vector2 b)
@@ -136,19 +117,18 @@ public sealed class SelectionAndOrders : MonoBehaviour
 
     private void ClearSelection()
     {
-        // вимкнути підсвітку
         for (int i = 0; i < selectedVisuals.Count; i++)
             if (selectedVisuals[i] != null) selectedVisuals[i].SetSelected(false);
 
-        selected.Clear();
+        selectedIds.Clear();
         selectedVisuals.Clear();
     }
 
-    private void AddToSelection(EntityId id)
+    private void AddToSelection(int id, SelectionVisual vis)
     {
-        selected.Add(id);
+        if (selectedIds.Contains(id)) return;
+        selectedIds.Add(id);
 
-        var vis = id.GetComponent<SelectionVisual>();
         if (vis != null)
         {
             selectedVisuals.Add(vis);
@@ -156,26 +136,29 @@ public sealed class SelectionAndOrders : MonoBehaviour
         }
     }
 
-    // ---------------------- Orders ----------------------
+    // ---------------- Orders ----------------
 
     private void IssueMove()
     {
-        if (selected.Count == 0) return;
+        if (selectedIds.Count == 0) return;
 
         Vector2 world = GetMouseWorld();
-
-        // Дозволяємо наказ тільки по землі
         Collider2D ground = Physics2D.OverlapPoint(world, groundMask);
+        
         if (!ground) return;
-
-        // Поки що всі в одну точку (наступним кроком зробимо формацію)
-        for (int i = 0; i < selected.Count; i++)
+        
+        for (int i = 0; i < selectedIds.Count; i++)
         {
-            sim.Commands.Enqueue(new MoveCommand(selected[i].Id, world));
+            int unitId = selectedIds[i];
+
+            if (lobby != null && lobby.inMatch)
+                lobby.CmdMove(unitId, world.x, world.y);
+            else if (sim != null)
+                sim.Commands.Enqueue(new MoveCommand(unitId, world));
         }
     }
 
-    // ---------------------- Input (Old + New) ----------------------
+    // ---------------- Input ----------------
 
     private bool LeftDown()
     {
@@ -216,7 +199,7 @@ public sealed class SelectionAndOrders : MonoBehaviour
     private Vector2 GetMouseScreen()
     {
 #if ENABLE_INPUT_SYSTEM
-        return Mouse.current.position.ReadValue();
+        return Mouse.current != null ? Mouse.current.position.ReadValue() : (Vector2)Input.mousePosition;
 #else
         return Input.mousePosition;
 #endif

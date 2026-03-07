@@ -2,9 +2,13 @@ using UnityEngine;
 
 public sealed class EntityId : MonoBehaviour
 {
+    // залишай як хочеш в інспекторі
     [SerializeField] private int id;
+
+    // ✅ єдине “правильне” API для коду
     public int Id => id;
 
-    // На старті можна вручну виставляти в інспекторі.
-    // Пізніше: сервер буде роздавати ці ID.
+    // якщо треба встановлювати зі спавну
+    
+    public void Set(int newId) => id = newId;
 }
