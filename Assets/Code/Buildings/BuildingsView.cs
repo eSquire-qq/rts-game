@@ -1,10 +1,11 @@
 ﻿using UnityEngine;
 
-public class UnitView : MonoBehaviour
+public class BuildingView : MonoBehaviour
 {
     public int owner;
     public int hp;
     public int maxHp;
+    public string buildingType;
 
     [SerializeField] private EntityId entityId;
     [SerializeField] private HealthBarScript healthBar;
@@ -21,22 +22,21 @@ public class UnitView : MonoBehaviour
     {
         if (entityId == null)
         {
-            Debug.LogError("UnitView: no EntityId on prefab!");
+            Debug.LogError("BuildingView: no EntityId on prefab!");
             return;
         }
 
         entityId.Set(id);
     }
 
-    public void ApplyServerPos(float x, float y)
+    public void ApplyServerState(float x, float y, int hp, int maxHp, string type, int owner)
     {
         transform.position = new Vector3(x, y, transform.position.z);
-    }
 
-    public void ApplyHp(int newHp, int newMaxHp)
-    {
-        hp = newHp;
-        maxHp = newMaxHp;
+        this.hp = hp;
+        this.maxHp = maxHp;
+        this.buildingType = type;
+        this.owner = owner;
 
         if (healthBar != null)
         {
@@ -47,7 +47,6 @@ public class UnitView : MonoBehaviour
 
     public int GetId()
     {
-        if (entityId == null) return -1;
-        return entityId.Id;
+        return entityId != null ? entityId.Id : -1;
     }
 }

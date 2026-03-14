@@ -10,6 +10,19 @@ public class UnitDto
     public float x;
     public float y;
     public int hp;
+    public int maxHp;
+}
+
+[Serializable]
+public class BuildingDto
+{
+    public int id;
+    public int owner;
+    public string type;
+    public float x;
+    public float y;
+    public int hp;
+    public int maxHp;
 }
 
 [Serializable]
@@ -18,6 +31,7 @@ public class StateMsg
     public string type;
     public int tick;
     public UnitDto[] units;
+    public BuildingDto[] buildings;
 }
 
 public class UnitsClientWorld : MonoBehaviour
@@ -76,7 +90,7 @@ public class UnitsClientWorld : MonoBehaviour
 
             view.owner = u.owner;
             view.ApplyServerPos(u.x, u.y);
-            view.ApplyHp(u.hp);
+            view.ApplyHp(u.hp, u.maxHp);
         }
 
         // 2) Видаляємо локальні юніти, яких більше немає в state
@@ -113,7 +127,7 @@ public class UnitsClientWorld : MonoBehaviour
 
         view.Bind(dto.id);
         view.owner = dto.owner;
-        view.ApplyHp(dto.hp);
+        view.ApplyHp(dto.hp, dto.maxHp);
         view.name = $"Unit_{dto.id}_owner{dto.owner}";
 
         return view;

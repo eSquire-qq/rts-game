@@ -11,8 +11,6 @@ public class MatchStartMsg { public string type; public string matchId; }
 [Serializable]
 public class HelloMsg { public string type; public int playerId; }
 
-    
-
 public class LobbyClient : MonoBehaviour
 {
     [Header("Network")]
@@ -31,13 +29,14 @@ public class LobbyClient : MonoBehaviour
     public bool inMatch;
 
     public UnitsClientWorld world;
-
+    public BuildingsClientWorld buildingsWorld;
     private void Awake()
     {
         MainThreadDispatcher.EnsureExists();
-
+        
         if (net == null) net = GetComponent<NetClient>();
         if (world == null) world = FindFirstObjectByType<UnitsClientWorld>();
+        if(buildingsWorld == null) buildingsWorld = FindObjectOfType<BuildingsClientWorld>();
     }
 
     private void Start()
@@ -114,6 +113,11 @@ public class LobbyClient : MonoBehaviour
         SendLine("{\"type\":\"cmd_attack\",\"unitId\":" + unitId + ",\"targetId\":" + targetId + "}");
     }
 
+    public void CmdAttackBuilding(int unitId, int targetId)
+    {
+        SendLine("{\"type\":\"cmd_attack_building\",\"unitId\":" + unitId + ",\"targetId\":" + targetId + "}");
+    }
+
     public void CmdStop(int unitId)
     {
         SendLine("{\"type\":\"cmd_stop\",\"unitId\":" + unitId + "}");
@@ -185,19 +189,20 @@ public class LobbyClient : MonoBehaviour
             return;
         }
 
+        if (json.Contains("\"type\":\"error\""))
+        {
+            Debug.LogWarning("Server error: " + json);
+            return;
+        }
+
         if (json.Contains("\"type\":\"state\""))
         {
             var msg = JsonUtility.FromJson<StateMsg>(json);
             if (msg != null)
             {
                 world?.ApplyState(msg);
+                buildingsWorld?.ApplyState(msg);
             }
-            return;
-        }
-
-        if (json.Contains("\"type\":\"error\""))
-        {
-            Debug.LogWarning("Server error: " + json);
             return;
         }
 

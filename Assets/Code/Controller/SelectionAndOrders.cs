@@ -15,6 +15,7 @@ public sealed class SelectionAndOrders : MonoBehaviour
 
     [Header("Layer masks")]
     [SerializeField] private LayerMask unitMask;
+    [SerializeField] private LayerMask buildingMask;
     [SerializeField] private LayerMask groundMask;
 
     [Header("Selection")]
@@ -29,8 +30,8 @@ public sealed class SelectionAndOrders : MonoBehaviour
     private void Awake()
     {
         if (cam == null) cam = Camera.main;
-        if (sim == null) sim = FindObjectOfType<GameSimulation>();
-        if (lobby == null) lobby = FindObjectOfType<LobbyClient>();
+        if (sim == null) sim = FindFirstObjectByType<GameSimulation>();
+        if (lobby == null) lobby = FindFirstObjectByType<LobbyClient>();
     }
 
     private void Update()
@@ -65,7 +66,6 @@ public sealed class SelectionAndOrders : MonoBehaviour
             IssueMove();
         }
 
-        // ✅ STOP по клавіші S
         if (StopDown())
         {
             IssueStop();
@@ -79,13 +79,29 @@ public sealed class SelectionAndOrders : MonoBehaviour
         if (cam == null) return;
 
         Vector2 world = cam.ScreenToWorldPoint(screenPos);
-        Collider2D hit = Physics2D.OverlapPoint(world, unitMask);
-        if (!hit)
+
+        // 1) Спочатку пробуємо клік по юніту
+        Collider2D unitHit = Physics2D.OverlapPoint(world, unitMask);
+        if (unitHit != null)
         {
-            ClearSelection();
+            HandleUnitClick(unitHit);
             return;
         }
 
+        // 2) Потім пробуємо клік по будівлі
+        Collider2D buildingHit = Physics2D.OverlapPoint(world, buildingMask);
+        if (buildingHit != null)
+        {
+            HandleBuildingClick(buildingHit);
+            return;
+        }
+
+        // 3) Інакше очистити selection
+        ClearSelection();
+    }
+
+    private void HandleUnitClick(Collider2D hit)
+    {
         var eid = hit.GetComponentInParent<EntityId>();
         if (eid == null)
         {
@@ -112,6 +128,36 @@ public sealed class SelectionAndOrders : MonoBehaviour
         ClearSelection();
     }
 
+    private void HandleBuildingClick(Collider2D hit)
+    {
+        var eid = hit.GetComponentInParent<EntityId>();
+        var view = hit.GetComponentInParent<BuildingView>();
+
+        if (eid == null || view == null)
+        {
+            ClearSelection();
+            return;
+        }
+
+        bool isOwnBuilding = lobby == null || lobby.myPlayerId == 0 || view.owner == lobby.myPlayerId;
+
+        // По своїй будівлі поки нічого не робимо
+        if (isOwnBuilding)
+        {
+            ClearSelection();
+            return;
+        }
+
+        // Якщо є виділені юніти — атакуємо будівлю
+        if (selectedIds.Count > 0)
+        {
+            IssueAttackBuilding(eid.Id);
+            return;
+        }
+
+        ClearSelection();
+    }
+
     // ---------------- Selection ----------------
 
     private void SelectBox(Vector2 startScreen, Vector2 endScreen)
@@ -121,7 +167,7 @@ public sealed class SelectionAndOrders : MonoBehaviour
         Rect rect = RectFromScreenPoints(startScreen, endScreen);
         ClearSelection();
 
-        var allColliders = FindObjectsOfType<Collider2D>();
+        var allColliders = FindObjectsByType<Collider2D>(FindObjectsSortMode.None);
         foreach (var col in allColliders)
         {
             if (col == null) continue;
@@ -134,7 +180,8 @@ public sealed class SelectionAndOrders : MonoBehaviour
             if (eid == null) continue;
 
             var view = col.GetComponentInParent<UnitView>();
-            if (view != null && lobby != null && lobby.myPlayerId != 0 && view.owner != lobby.myPlayerId) continue;
+            if (view != null && lobby != null && lobby.myPlayerId != 0 && view.owner != lobby.myPlayerId)
+                continue;
 
             AddToSelection(eid.Id, col.GetComponentInParent<SelectionVisual>());
         }
@@ -200,6 +247,16 @@ public sealed class SelectionAndOrders : MonoBehaviour
         }
     }
 
+    private void IssueAttackBuilding(int targetBuildingId)
+    {
+        if (selectedIds.Count == 0 || lobby == null || !lobby.inMatch) return;
+
+        foreach (int attackerId in selectedIds)
+        {
+            lobby.CmdAttackBuilding(attackerId, targetBuildingId);
+        }
+    }
+
     private void IssueStop()
     {
         if (selectedIds.Count == 0) return;
@@ -212,8 +269,6 @@ public sealed class SelectionAndOrders : MonoBehaviour
             }
             return;
         }
-
-        // OFFLINE: nothing yet
     }
 
     // ---------------- Input ----------------

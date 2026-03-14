@@ -314,6 +314,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UnitView
   owner: 1
   hp: 0
+  maxHp: 0
   entityId: {fileID: 0}
   healthBar: {fileID: 0}
 --- !u!1 &4955201337026007662
