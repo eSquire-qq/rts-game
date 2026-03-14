@@ -26,3 +26,15 @@ public readonly struct MoveCommand : ICommand
         Target = target;
     }
 }
+
+public readonly struct AttackCommand : ICommand
+{
+    public int EntityId { get; }
+    public int TargetId { get; }
+
+    public AttackCommand(int entityId, int targetId)
+    {
+        EntityId = entityId;
+        TargetId = targetId;
+    }
+}

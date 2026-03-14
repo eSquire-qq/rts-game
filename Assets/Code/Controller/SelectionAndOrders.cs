@@ -11,7 +11,7 @@ public sealed class SelectionAndOrders : MonoBehaviour
     [SerializeField] private Camera cam;
     [SerializeField] private GameSimulation sim;
     [SerializeField] private SelectionBoxView boxView;
-    [SerializeField] private LobbyClient lobby; // optional
+    [SerializeField] private LobbyClient lobby;
 
     [Header("Layer masks")]
     [SerializeField] private LayerMask unitMask;
@@ -29,8 +29,8 @@ public sealed class SelectionAndOrders : MonoBehaviour
     private void Awake()
     {
         if (cam == null) cam = Camera.main;
-        if (sim == null) sim = FindFirstObjectByType<GameSimulation>();
-        if (lobby == null) lobby = FindFirstObjectByType<LobbyClient>();
+        if (sim == null) sim = FindObjectOfType<GameSimulation>();
+        if (lobby == null) lobby = FindObjectOfType<LobbyClient>();
     }
 
     private void Update()
@@ -54,34 +54,65 @@ public sealed class SelectionAndOrders : MonoBehaviour
             boxView?.End();
 
             float dragDist = Vector2.Distance(dragStartScreen, end);
-            if (dragDist < dragThresholdPixels) SelectSingleAtScreen(end);
-            else SelectBox(dragStartScreen, end);
+            if (dragDist < dragThresholdPixels)
+                HandleLeftClick(end);
+            else
+                SelectBox(dragStartScreen, end);
         }
 
         if (RightDown())
         {
             IssueMove();
         }
+
+        // ✅ STOP по клавіші S
+        if (StopDown())
+        {
+            IssueStop();
+        }
     }
 
-    // ---------------- Selection ----------------
+    // ---------------- Left click logic ----------------
 
-    private void SelectSingleAtScreen(Vector2 screenPos)
+    private void HandleLeftClick(Vector2 screenPos)
     {
         if (cam == null) return;
 
         Vector2 world = cam.ScreenToWorldPoint(screenPos);
         Collider2D hit = Physics2D.OverlapPoint(world, unitMask);
+        if (!hit)
+        {
+            ClearSelection();
+            return;
+        }
+
+        var eid = hit.GetComponentInParent<EntityId>();
+        if (eid == null)
+        {
+            ClearSelection();
+            return;
+        }
+
+        var view = hit.GetComponentInParent<UnitView>();
+        bool isOwnUnit = view == null || lobby == null || lobby.myPlayerId == 0 || view.owner == lobby.myPlayerId;
+
+        if (isOwnUnit)
+        {
+            ClearSelection();
+            AddToSelection(eid.Id, hit.GetComponentInParent<SelectionVisual>());
+            return;
+        }
+
+        if (selectedIds.Count > 0)
+        {
+            IssueAttack(eid.Id);
+            return;
+        }
 
         ClearSelection();
-        if (!hit) return;
-
-        // ✅ беремо EntityId з юніта
-        var eid = hit.GetComponentInParent<EntityId>();
-        if (eid == null) return;
-
-        AddToSelection(eid.Id, hit.GetComponentInParent<SelectionVisual>());
     }
+
+    // ---------------- Selection ----------------
 
     private void SelectBox(Vector2 startScreen, Vector2 endScreen)
     {
@@ -90,19 +121,20 @@ public sealed class SelectionAndOrders : MonoBehaviour
         Rect rect = RectFromScreenPoints(startScreen, endScreen);
         ClearSelection();
 
-        var allColliders = FindObjectsByType<Collider2D>(FindObjectsSortMode.None);
+        var allColliders = FindObjectsOfType<Collider2D>();
         foreach (var col in allColliders)
         {
             if (col == null) continue;
-
-            int layer = col.gameObject.layer;
-            if ((unitMask.value & (1 << layer)) == 0) continue;
+            if ((unitMask.value & (1 << col.gameObject.layer)) == 0) continue;
 
             Vector3 sp = cam.WorldToScreenPoint(col.transform.position);
             if (!rect.Contains(sp)) continue;
 
             var eid = col.GetComponentInParent<EntityId>();
             if (eid == null) continue;
+
+            var view = col.GetComponentInParent<UnitView>();
+            if (view != null && lobby != null && lobby.myPlayerId != 0 && view.owner != lobby.myPlayerId) continue;
 
             AddToSelection(eid.Id, col.GetComponentInParent<SelectionVisual>());
         }
@@ -117,8 +149,10 @@ public sealed class SelectionAndOrders : MonoBehaviour
 
     private void ClearSelection()
     {
-        for (int i = 0; i < selectedVisuals.Count; i++)
-            if (selectedVisuals[i] != null) selectedVisuals[i].SetSelected(false);
+        foreach (var vis in selectedVisuals)
+        {
+            if (vis != null) vis.SetSelected(false);
+        }
 
         selectedIds.Clear();
         selectedVisuals.Clear();
@@ -127,8 +161,8 @@ public sealed class SelectionAndOrders : MonoBehaviour
     private void AddToSelection(int id, SelectionVisual vis)
     {
         if (selectedIds.Contains(id)) return;
-        selectedIds.Add(id);
 
+        selectedIds.Add(id);
         if (vis != null)
         {
             selectedVisuals.Add(vis);
@@ -144,18 +178,42 @@ public sealed class SelectionAndOrders : MonoBehaviour
 
         Vector2 world = GetMouseWorld();
         Collider2D ground = Physics2D.OverlapPoint(world, groundMask);
-        
         if (!ground) return;
-        
-        for (int i = 0; i < selectedIds.Count; i++)
-        {
-            int unitId = selectedIds[i];
 
+        foreach (int unitId in selectedIds)
+        {
             if (lobby != null && lobby.inMatch)
                 lobby.CmdMove(unitId, world.x, world.y);
             else if (sim != null)
                 sim.Commands.Enqueue(new MoveCommand(unitId, world));
         }
+    }
+
+    private void IssueAttack(int targetId)
+    {
+        if (selectedIds.Count == 0 || lobby == null || !lobby.inMatch) return;
+
+        foreach (int attackerId in selectedIds)
+        {
+            if (attackerId == targetId) continue;
+            lobby.CmdAttack(attackerId, targetId);
+        }
+    }
+
+    private void IssueStop()
+    {
+        if (selectedIds.Count == 0) return;
+
+        if (lobby != null && lobby.inMatch)
+        {
+            foreach (int unitId in selectedIds)
+            {
+                lobby.CmdStop(unitId);
+            }
+            return;
+        }
+
+        // OFFLINE: nothing yet
     }
 
     // ---------------- Input ----------------
@@ -193,6 +251,15 @@ public sealed class SelectionAndOrders : MonoBehaviour
         return Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame;
 #else
         return Input.GetMouseButtonDown(1);
+#endif
+    }
+
+    private bool StopDown()
+    {
+#if ENABLE_INPUT_SYSTEM
+        return Keyboard.current != null && Keyboard.current.sKey.wasPressedThisFrame;
+#else
+        return Input.GetKeyDown(KeyCode.S);
 #endif
     }
 

@@ -11,6 +11,8 @@ public class MatchStartMsg { public string type; public string matchId; }
 [Serializable]
 public class HelloMsg { public string type; public int playerId; }
 
+    
+
 public class LobbyClient : MonoBehaviour
 {
     [Header("Network")]
@@ -29,12 +31,13 @@ public class LobbyClient : MonoBehaviour
     public bool inMatch;
 
     public UnitsClientWorld world;
-    
+
     private void Awake()
     {
         MainThreadDispatcher.EnsureExists();
+
         if (net == null) net = GetComponent<NetClient>();
-        if (world == null) world = FindObjectOfType<UnitsClientWorld>();
+        if (world == null) world = FindFirstObjectByType<UnitsClientWorld>();
     }
 
     private void Start()
@@ -73,7 +76,8 @@ public class LobbyClient : MonoBehaviour
         lobbyId = null;
     }
 
-    // === UI buttons can call these ===
+    // ---------------- Public API ----------------
+
     public void Connect()
     {
         if (net == null) return;
@@ -95,11 +99,6 @@ public class LobbyClient : MonoBehaviour
         SendLine("{\"type\":\"set_ready\",\"ready\":" + (ready ? "true" : "false") + "}");
     }
 
-    /*public void CmdMove(int unitId, float x, float y)
-    {
-        SendLine("{\"type\":\"cmd_move\",\"unitId\":" + unitId + ",\"x\":" + x + ",\"y\":" + y + "}");
-    }*/
-    
     public void CmdMove(int unitId, float x, float y)
     {
         string xs = x.ToString(CultureInfo.InvariantCulture);
@@ -110,16 +109,27 @@ public class LobbyClient : MonoBehaviour
                  ",\"y\":" + ys + "}");
     }
 
+    public void CmdAttack(int unitId, int targetId)
+    {
+        SendLine("{\"type\":\"cmd_attack\",\"unitId\":" + unitId + ",\"targetId\":" + targetId + "}");
+    }
+
+    public void CmdStop(int unitId)
+    {
+        SendLine("{\"type\":\"cmd_stop\",\"unitId\":" + unitId + "}");
+    }
     public void CmdEndMatch()
     {
         SendLine("{\"type\":\"cmd_end_match\"}");
     }
-    
+
     private void SendLine(string json)
     {
         if (net == null) return;
         net.SendLine(json);
     }
+
+    // ---------------- Debug hotkeys ----------------
 
     private void Update()
     {
@@ -139,21 +149,10 @@ public class LobbyClient : MonoBehaviour
             CmdEndMatch();
     }
 
+    // ---------------- Incoming messages ----------------
+
     private void HandleLine(string json)
     {
-        
-        if (json.Contains("\"type\":\"state\""))
-        {
-            // JsonUtility нормально парсить масиви, якщо структура проста і поля збігаються по іменам
-            var msg = JsonUtility.FromJson<StateMsg>(json);
-            if (msg != null)
-            {
-                world?.ApplyState(msg);
-            }
-            return;
-        }
-        
-        // hello
         if (json.Contains("\"type\":\"hello\""))
         {
             var msg = JsonUtility.FromJson<HelloMsg>(json);
@@ -162,32 +161,21 @@ public class LobbyClient : MonoBehaviour
             return;
         }
 
-        // lobby_created
         if (json.Contains("\"type\":\"lobby_created\""))
         {
             var msg = JsonUtility.FromJson<LobbyCreatedMsg>(json);
             lobbyId = msg.lobbyId;
-            Debug.Log("Lobby created id=" + lobbyId);
-            return;
-        }
-        
-        if (json.Contains("\"type\":\"lobby_created\""))
-        {
-            var msg = JsonUtility.FromJson<LobbyCreatedMsg>(json);
-            lobbyId = msg.lobbyId;
-            lobbyIdToJoin = lobbyId; // <-- додай
+            lobbyIdToJoin = lobbyId;
             Debug.Log("Lobby created id=" + lobbyId);
             return;
         }
 
-        // lobby_state
         if (json.Contains("\"type\":\"lobby_state\""))
         {
             Debug.Log("Lobby state: " + json);
             return;
         }
 
-        // match_start
         if (json.Contains("\"type\":\"match_start\""))
         {
             var msg = JsonUtility.FromJson<MatchStartMsg>(json);
@@ -197,10 +185,13 @@ public class LobbyClient : MonoBehaviour
             return;
         }
 
-        // state (ticks)
         if (json.Contains("\"type\":\"state\""))
         {
-            // Debug.Log("State: " + json);
+            var msg = JsonUtility.FromJson<StateMsg>(json);
+            if (msg != null)
+            {
+                world?.ApplyState(msg);
+            }
             return;
         }
 
