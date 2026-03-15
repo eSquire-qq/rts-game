@@ -75,8 +75,6 @@ public class LobbyClient : MonoBehaviour
         lobbyId = null;
     }
 
-    // ---------------- Public API ----------------
-
     public void Connect()
     {
         if (net == null) return;
@@ -108,6 +106,11 @@ public class LobbyClient : MonoBehaviour
                  ",\"y\":" + ys + "}");
     }
 
+    public void CmdTrainUnit(int buildingId, string unitType)
+    {
+        SendLine("{\"type\":\"cmd_train_unit\",\"buildingId\":" + buildingId + ",\"unitType\":\"" + unitType + "\"}");
+    }
+    
     public void CmdAttack(int unitId, int targetId)
     {
         SendLine("{\"type\":\"cmd_attack\",\"unitId\":" + unitId + ",\"targetId\":" + targetId + "}");
@@ -132,11 +135,12 @@ public class LobbyClient : MonoBehaviour
         if (net == null) return;
         net.SendLine(json);
     }
-
-    // ---------------- Debug hotkeys ----------------
-
+    
     private void Update()
     {
+        if (Input.GetKeyDown(KeyCode.T))
+            CmdTrainUnit(1, "swordsman");
+
         if (Input.GetKeyDown(KeyCode.C))
             CreateLobby();
 
@@ -152,9 +156,7 @@ public class LobbyClient : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.E))
             CmdEndMatch();
     }
-
-    // ---------------- Incoming messages ----------------
-
+    
     private void HandleLine(string json)
     {
         if (json.Contains("\"type\":\"hello\""))

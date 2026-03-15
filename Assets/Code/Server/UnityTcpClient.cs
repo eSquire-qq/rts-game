@@ -31,11 +31,7 @@ public class UnityTcpClient : MonoBehaviour
         while (_incoming.TryDequeue(out var line))
         {
             Debug.Log("[FROM SERVER] " + line);
-
-            //парсити "state" і руха юнітів
         }
-
-        // Тестові клавіші:
         if (Input.GetKeyDown(KeyCode.C))
             SendLine("{\"type\":\"create_lobby\"}");
 
@@ -87,7 +83,7 @@ public class UnityTcpClient : MonoBehaviour
         {
             while (_running && _client != null && _client.Connected)
             {
-                var line = _reader.ReadLine(); // блокується
+                var line = _reader.ReadLine();
                 if (line == null) break;
                 _incoming.Enqueue(line);
             }

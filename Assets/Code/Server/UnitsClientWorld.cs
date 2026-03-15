@@ -7,11 +7,13 @@ public class UnitDto
 {
     public int id;
     public int owner;
+    public string unitType;
     public float x;
     public float y;
     public int hp;
     public int maxHp;
 }
+
 
 [Serializable]
 public class BuildingDto
@@ -70,8 +72,7 @@ public class UnitsClientWorld : MonoBehaviour
     public void ApplyState(StateMsg state)
     {
         if (state == null || state.units == null) return;
-
-        // 1) Збираємо всіх "живих" юнітів, які прийшли від сервера в цьому state
+        
         var aliveIds = new HashSet<int>();
 
         for (int i = 0; i < state.units.Length; i++)
@@ -92,8 +93,7 @@ public class UnitsClientWorld : MonoBehaviour
             view.ApplyServerPos(u.x, u.y);
             view.ApplyHp(u.hp, u.maxHp);
         }
-
-        // 2) Видаляємо локальні юніти, яких більше немає в state
+        
         var toRemove = new List<int>();
 
         foreach (var kv in _byId)
@@ -106,8 +106,7 @@ public class UnitsClientWorld : MonoBehaviour
                 toRemove.Add(kv.Key);
             }
         }
-
-        // 3) Прибираємо їх із dictionary
+        
         for (int i = 0; i < toRemove.Count; i++)
         {
             _byId.Remove(toRemove[i]);

@@ -1,20 +1,10 @@
 ﻿using UnityEngine;
 
-/// <summary>
-/// Базовий інтерфейс команди.
-/// Команди — це ключ до мультиплеєра.
-/// Клієнт надсилає команди (move/attack/build), сервер застосовує і розсилає результат.
-/// </summary>
 public interface ICommand
 {
-    // До якої сутності (юніта/будівлі) відноситься команда.
     int EntityId { get; }
 }
 
-/// <summary>
-/// Команда "перемістити юніта в точку".
-/// Це не "логіка руху" — це тільки дані (ID + Target).
-/// </summary>
 public readonly struct MoveCommand : ICommand
 {
     public int EntityId { get; }

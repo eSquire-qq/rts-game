@@ -91,8 +91,7 @@ public class NetClient : MonoBehaviour
                 lock (_recvBuffer)
                 {
                     _recvBuffer.Append(chunk);
-
-                    // Ріжемо по '\n'
+                    
                     while (true)
                     {
                         int idx = _recvBuffer.ToString().IndexOf('\n');
@@ -103,7 +102,6 @@ public class NetClient : MonoBehaviour
 
                         if (!string.IsNullOrEmpty(line))
                         {
-                            // Виклик події НЕ в main thread — тому закидаємо в чергу через Unity dispatcher (див. нижче)
                             MainThreadDispatcher.Enqueue(() => {
                                 Debug.Log("[S->C] " + line);
                                 OnLine?.Invoke(line);

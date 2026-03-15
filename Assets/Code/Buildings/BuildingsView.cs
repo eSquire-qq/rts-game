@@ -6,7 +6,8 @@ public class BuildingView : MonoBehaviour
     public int hp;
     public int maxHp;
     public string buildingType;
-
+    
+    
     [SerializeField] private EntityId entityId;
     [SerializeField] private HealthBarScript healthBar;
 

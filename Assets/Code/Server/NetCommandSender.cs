@@ -12,13 +12,11 @@ namespace Code.Server
         {
             if (netClient == null || commandQueue == null) return;
             if (!netClient.IsConnected) return;
-
-            // відправляємо всі команди, що накопичились за кадр
+            
             while (commandQueue.TryDequeue(out var cmd))
             {
                 if (cmd == null) break;
-
-                // наразі підтримуємо MoveCommand
+                
                 if (cmd is MoveCommand move)
                 {
                     var msg = new CmdMoveMsg

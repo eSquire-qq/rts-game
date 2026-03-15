@@ -22,8 +22,6 @@ public class HealthBarScript : MonoBehaviour
     {
         slider.maxValue = maxHealth;
         slider.value = health;
-
-        // ховаємо бар, якщо hp повне
         slider.gameObject.SetActive(health < maxHealth);
 
         fill.color = gradient.Evaluate(slider.normalizedValue);

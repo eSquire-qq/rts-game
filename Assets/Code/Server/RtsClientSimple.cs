@@ -9,14 +9,13 @@ public class RtsClientSimple : MonoBehaviour
     public string host = "127.0.0.1";
     public int port = 7777;
 
-    public Transform unit1Visual; // прив'яжи сюди об'єкт юніта в сцені
+    public Transform unit1Visual;
 
     TcpClient client;
     StreamReader reader;
     StreamWriter writer;
     Thread netThread;
-
-    // Дані, які ми оновлюємо з мережі
+    
     volatile float unitX;
     volatile float unitY;
 
@@ -27,7 +26,6 @@ public class RtsClientSimple : MonoBehaviour
 
     void Update()
     {
-        // 1) Клік => відправляємо команду на сервер
         if (Input.GetMouseButtonDown(1))
         {
             Vector3 world = Camera.main.ScreenToWorldPoint(Input.mousePosition);
@@ -36,8 +34,6 @@ public class RtsClientSimple : MonoBehaviour
 
             SendLine($"{{\"type\":\"cmd_move\",\"unitId\":1,\"x\":{x},\"y\":{y}}}");
         }
-
-        // 2) Малюємо те, що прийшло від сервера
         if (unit1Visual != null)
             unit1Visual.position = new Vector3(unitX, unitY, unit1Visual.position.z);
     }
@@ -72,17 +68,14 @@ public class RtsClientSimple : MonoBehaviour
 
     void HandleServerMessage(string json)
     {
-        // welcome: {"type":"welcome","playerId":1}
         if (json.Contains("\"type\":\"welcome\""))
         {
             Debug.Log("Connected: " + json);
             return;
         }
-
-        // state: {"type":"state","tick":123,"units":[{"id":1,"x":1.2,"y":0.7}]}
+        
         if (json.Contains("\"type\":\"state\""))
         {
-            // примітивний парсинг для демо (потім JsonUtility/Newtonsoft)
             unitX = ExtractFloat(json, "\"x\":");
             unitY = ExtractFloat(json, "\"y\":");
         }
