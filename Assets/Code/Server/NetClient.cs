@@ -16,8 +16,7 @@ public class NetClient : MonoBehaviour
     private volatile bool _running;
 
     private readonly StringBuilder _recvBuffer = new StringBuilder(4096);
-
-    // Події
+    
     public event Action OnConnected;
     public event Action<string> OnDisconnected;
     public event Action<string> OnLine;

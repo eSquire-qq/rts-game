@@ -6,7 +6,29 @@ public class BuildingsClientWorld : MonoBehaviour
     public BuildingView buildingPrefab;
     public Transform buildingsParent;
 
+    public GameObject barrackPrefab;
+    public GameObject archerHousePrefab;
+    public GameObject housePrefab;
+
+    private Dictionary<string, GameObject> buildingsPrefabMap;
+
     private readonly Dictionary<int, BuildingView> _byId = new();
+    private readonly Dictionary<int, BuildingDto> _dtoById = new();
+
+    private void Awake()
+    {
+        buildingsPrefabMap = new Dictionary<string, GameObject>()
+        {
+            { "barracks", barrackPrefab },
+            { "archery", archerHousePrefab },
+            { "house", housePrefab },
+        };
+    }
+
+    public bool TryGetBuildingDto(int id, out BuildingDto dto)
+    {
+        return _dtoById.TryGetValue(id, out dto);
+    }
 
     public void ApplyState(StateMsg state)
     {
@@ -19,18 +41,26 @@ public class BuildingsClientWorld : MonoBehaviour
             if (b == null) continue;
 
             aliveIds.Add(b.id);
+            _dtoById[b.id] = b;
 
             if (!_byId.TryGetValue(b.id, out var view) || view == null)
             {
                 view = Spawn(b);
                 if (view == null) continue;
+
                 _byId[b.id] = view;
             }
 
             view.ApplyServerState(b.x, b.y, b.hp, b.maxHp, b.type, b.owner);
+
+            if (BuildingUI.Instance != null && BuildingUI.Instance.IsShowingBuilding(b.id))
+            {
+                BuildingUI.Instance.UpdateBuildingInfo(b);
+            }
         }
 
         var toRemove = new List<int>();
+
         foreach (var kv in _byId)
         {
             if (!aliveIds.Contains(kv.Key))
@@ -42,24 +72,51 @@ public class BuildingsClientWorld : MonoBehaviour
             }
         }
 
-        for (int i = 0; i < toRemove.Count; i++)
-            _byId.Remove(toRemove[i]);
+        foreach (int id in toRemove)
+        {
+            _byId.Remove(id);
+            _dtoById.Remove(id);
+        }
     }
 
     private BuildingView Spawn(BuildingDto dto)
     {
-        if (buildingPrefab == null)
+        GameObject prefabToSpawn = null;
+
+        if (buildingsPrefabMap != null)
+            buildingsPrefabMap.TryGetValue(dto.type, out prefabToSpawn);
+
+        if (prefabToSpawn == null)
         {
-            Debug.LogError("BuildingsClientWorld: buildingPrefab is not set!");
+            Debug.LogError("No prefab for building type: " + dto.type);
             return null;
         }
 
         var pos = new Vector3(dto.x, dto.y, 0f);
-        var view = Instantiate(buildingPrefab, pos, Quaternion.identity, buildingsParent);
+        var obj = Instantiate(prefabToSpawn, pos, Quaternion.identity, buildingsParent);
+
+        var view = obj.GetComponent<BuildingView>();
+        if (view == null)
+        {
+            Debug.LogError("BuildingView NOT FOUND on prefab: " + dto.type);
+            Destroy(obj);
+            return null;
+        }
 
         view.Bind(dto.id);
         view.ApplyServerState(dto.x, dto.y, dto.hp, dto.maxHp, dto.type, dto.owner);
-        view.name = $"Building_{dto.id}_{dto.type}_owner{dto.owner}";
+
+        var clickHandler = obj.GetComponent<BuildingClickHandler>();
+        if (clickHandler != null)
+        {
+            clickHandler.buildingId = dto.id;
+        }
+        else
+        {
+            Debug.LogError("BuildingClickHandler NOT FOUND on prefab: " + dto.type);
+        }
+
+        obj.name = $"Building_{dto.id}_{dto.type}_owner{dto.owner}";
 
         return view;
     }

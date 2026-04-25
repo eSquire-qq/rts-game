@@ -13,6 +13,8 @@ public class HelloMsg { public string type; public int playerId; }
 
 public class LobbyClient : MonoBehaviour
 {
+    [SerializeField] private TopBarUI topBarUI;
+    
     [Header("Network")]
     public NetClient net;
 
@@ -30,6 +32,9 @@ public class LobbyClient : MonoBehaviour
 
     public UnitsClientWorld world;
     public BuildingsClientWorld buildingsWorld;
+    
+    public PlayerUI playerUI;
+    
     private void Awake()
     {
         MainThreadDispatcher.EnsureExists();
@@ -136,6 +141,15 @@ public class LobbyClient : MonoBehaviour
         net.SendLine(json);
     }
     
+    public void SendBuildCommand(string type, float x, float y)
+    {
+        string xs = x.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        string ys = y.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+        SendLine("{\"type\":\"cmd_build\",\"buildingType\":\"" + type +
+                 "\",\"x\":" + xs + ",\"y\":" + ys + "}");
+    }
+    
     private void Update()
     {
         if (Input.GetKeyDown(KeyCode.T))
@@ -159,10 +173,30 @@ public class LobbyClient : MonoBehaviour
     
     private void HandleLine(string json)
     {
+        if (json.Contains("\"type\":\"state\""))
+        {
+            var msg = JsonUtility.FromJson<StateMsg>(json);
+
+            if (msg != null)
+            {
+                if (myPlayerId == 0)
+                {
+                    Debug.Log("WAITING FOR PLAYER ID...");
+                    return;
+                }
+
+                world?.ApplyState(msg);
+                buildingsWorld?.ApplyState(msg);
+                playerUI?.UpdateFromState(msg);
+            }
+            return;
+        }
+        
         if (json.Contains("\"type\":\"hello\""))
         {
             var msg = JsonUtility.FromJson<HelloMsg>(json);
             myPlayerId = msg.playerId;
+            playerUI.myPlayerId = myPlayerId;
             Debug.Log("My playerId = " + myPlayerId);
             return;
         }
@@ -186,9 +220,7 @@ public class LobbyClient : MonoBehaviour
         {
             var msg = JsonUtility.FromJson<MatchStartMsg>(json);
             matchId = msg.matchId;
-            inMatch = true;
-            Debug.Log("Match started id=" + matchId);
-            return;
+            inMatch = true; // ← це має спрацювати
         }
 
         if (json.Contains("\"type\":\"error\""))
@@ -196,18 +228,12 @@ public class LobbyClient : MonoBehaviour
             Debug.LogWarning("Server error: " + json);
             return;
         }
-
-        if (json.Contains("\"type\":\"state\""))
-        {
-            var msg = JsonUtility.FromJson<StateMsg>(json);
-            if (msg != null)
-            {
-                world?.ApplyState(msg);
-                buildingsWorld?.ApplyState(msg);
-            }
-            return;
-        }
-
+        
         Debug.Log("Unknown msg: " + json);
+        topBarUI?.SetPlayerId(myPlayerId);
+    }
+    public void SendBuild(string buildingType)
+    {
+        SendLine("{\"type\":\"cmd_build\",\"buildingType\":\"" + buildingType + "\",\"x\":0,\"y\":0}");
     }
 }

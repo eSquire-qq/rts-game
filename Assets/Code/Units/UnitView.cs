@@ -5,7 +5,8 @@ public class UnitView : MonoBehaviour
     public int owner;
     public int hp;
     public int maxHp;
-
+    public int Id { get; private set; }
+    
     [SerializeField] private EntityId entityId;
     [SerializeField] private HealthBarScript healthBar;
 
@@ -30,7 +31,7 @@ public class UnitView : MonoBehaviour
 
     public void ApplyServerPos(float x, float y)
     {
-        transform.position = new Vector3(x, y, transform.position.z);
+        transform.position = new Vector3(x, y, 0f);
     }
 
     public void ApplyHp(int newHp, int newMaxHp)

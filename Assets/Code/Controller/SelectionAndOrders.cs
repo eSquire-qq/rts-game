@@ -27,6 +27,12 @@ public sealed class SelectionAndOrders : MonoBehaviour
     private bool isDragging;
     private Vector2 dragStartScreen;
 
+    // ── стан миші який оновлюється вручну ──
+    private Vector2 _mousePos;
+    private bool _leftDown, _leftHeld, _leftUp;
+    private bool _rightDown;
+    private bool _stopDown;
+
     private void Awake()
     {
         if (cam == null) cam = Camera.main;
@@ -36,22 +42,25 @@ public sealed class SelectionAndOrders : MonoBehaviour
 
     private void Update()
     {
-        if (LeftDown())
+        // ── читаємо ввід один раз на початку фрейму ──
+        PollInput();
+
+        if (_leftDown)
         {
             isDragging = true;
-            dragStartScreen = GetMouseScreen();
+            dragStartScreen = _mousePos;
             boxView?.Begin(dragStartScreen);
         }
 
-        if (isDragging && LeftHeld())
+        if (isDragging && _leftHeld)
         {
-            boxView?.UpdateBox(GetMouseScreen());
+            boxView?.UpdateBox(_mousePos);
         }
 
-        if (isDragging && LeftUp())
+        if (isDragging && _leftUp)
         {
             isDragging = false;
-            Vector2 end = GetMouseScreen();
+            Vector2 end = _mousePos;
             boxView?.End();
 
             float dragDist = Vector2.Distance(dragStartScreen, end);
@@ -61,15 +70,55 @@ public sealed class SelectionAndOrders : MonoBehaviour
                 SelectBox(dragStartScreen, end);
         }
 
-        if (RightDown())
+        if (_rightDown)
         {
             IssueMove();
         }
 
-        if (StopDown())
+        if (_stopDown)
         {
             IssueStop();
         }
+    }
+
+    // ── універсальне читання вводу ──
+    private void PollInput()
+    {
+#if ENABLE_INPUT_SYSTEM
+        // Новий Input System
+        var mouse = Mouse.current;
+        var keyboard = Keyboard.current;
+
+        if (mouse != null)
+        {
+            _mousePos  = mouse.position.ReadValue();
+            _leftDown  = mouse.leftButton.wasPressedThisFrame;
+            _leftHeld  = mouse.leftButton.isPressed;
+            _leftUp    = mouse.leftButton.wasReleasedThisFrame;
+            _rightDown = mouse.rightButton.wasPressedThisFrame;
+        }
+        else
+        {
+            // Fallback на старий Input якщо Mouse.current = null
+            _mousePos  = Input.mousePosition;
+            _leftDown  = Input.GetMouseButtonDown(0);
+            _leftHeld  = Input.GetMouseButton(0);
+            _leftUp    = Input.GetMouseButtonUp(0);
+            _rightDown = Input.GetMouseButtonDown(1);
+        }
+
+        _stopDown = keyboard != null
+            ? keyboard.sKey.wasPressedThisFrame
+            : Input.GetKeyDown(KeyCode.S);
+#else
+        // Старий Input System
+        _mousePos  = Input.mousePosition;
+        _leftDown  = Input.GetMouseButtonDown(0);
+        _leftHeld  = Input.GetMouseButton(0);
+        _leftUp    = Input.GetMouseButtonUp(0);
+        _rightDown = Input.GetMouseButtonDown(1);
+        _stopDown  = Input.GetKeyDown(KeyCode.S);
+#endif
     }
 
     // ---------------- Left click logic ----------------
@@ -78,39 +127,35 @@ public sealed class SelectionAndOrders : MonoBehaviour
     {
         if (cam == null) return;
 
-        Vector2 world = cam.ScreenToWorldPoint(screenPos);
+        Vector2 worldPos = cam.ScreenToWorldPoint(screenPos);
 
-        // 1) Спочатку пробуємо клік по юніту
-        Collider2D unitHit = Physics2D.OverlapPoint(world, unitMask);
+        Collider2D unitHit = Physics2D.OverlapPoint(worldPos, unitMask);
         if (unitHit != null)
         {
             HandleUnitClick(unitHit);
             return;
         }
 
-        // 2) Потім пробуємо клік по будівлі
-        Collider2D buildingHit = Physics2D.OverlapPoint(world, buildingMask);
+        Collider2D buildingHit = Physics2D.OverlapPoint(worldPos, buildingMask);
         if (buildingHit != null)
         {
             HandleBuildingClick(buildingHit);
             return;
         }
 
-        // 3) Інакше очистити selection
         ClearSelection();
     }
 
     private void HandleUnitClick(Collider2D hit)
     {
         var eid = hit.GetComponentInParent<EntityId>();
-        if (eid == null)
-        {
-            ClearSelection();
-            return;
-        }
+        if (eid == null) { ClearSelection(); return; }
 
         var view = hit.GetComponentInParent<UnitView>();
-        bool isOwnUnit = view == null || lobby == null || lobby.myPlayerId == 0 || view.owner == lobby.myPlayerId;
+        bool isOwnUnit = view == null
+                      || lobby == null
+                      || lobby.myPlayerId == 0
+                      || view.owner == lobby.myPlayerId;
 
         if (isOwnUnit)
         {
@@ -119,6 +164,7 @@ public sealed class SelectionAndOrders : MonoBehaviour
             return;
         }
 
+        // Чужий юніт — атакуємо якщо є виділення
         if (selectedIds.Count > 0)
         {
             IssueAttack(eid.Id);
@@ -130,25 +176,21 @@ public sealed class SelectionAndOrders : MonoBehaviour
 
     private void HandleBuildingClick(Collider2D hit)
     {
-        var eid = hit.GetComponentInParent<EntityId>();
+        var eid  = hit.GetComponentInParent<EntityId>();
         var view = hit.GetComponentInParent<BuildingView>();
 
-        if (eid == null || view == null)
-        {
-            ClearSelection();
-            return;
-        }
+        if (eid == null || view == null) { ClearSelection(); return; }
 
-        bool isOwnBuilding = lobby == null || lobby.myPlayerId == 0 || view.owner == lobby.myPlayerId;
+        bool isOwnBuilding = lobby == null
+                          || lobby.myPlayerId == 0
+                          || view.owner == lobby.myPlayerId;
 
-        // По своїй будівлі поки нічого не робимо
         if (isOwnBuilding)
         {
             ClearSelection();
             return;
         }
 
-        // Якщо є виділені юніти — атакуємо будівлю
         if (selectedIds.Count > 0)
         {
             IssueAttackBuilding(eid.Id);
@@ -158,7 +200,7 @@ public sealed class SelectionAndOrders : MonoBehaviour
         ClearSelection();
     }
 
-    // ---------------- Selection ----------------
+    // ---------------- Box selection ----------------
 
     private void SelectBox(Vector2 startScreen, Vector2 endScreen)
     {
@@ -174,7 +216,7 @@ public sealed class SelectionAndOrders : MonoBehaviour
             if ((unitMask.value & (1 << col.gameObject.layer)) == 0) continue;
 
             Vector3 sp = cam.WorldToScreenPoint(col.transform.position);
-            if (!rect.Contains(sp)) continue;
+            if (!rect.Contains(new Vector2(sp.x, sp.y))) continue;
 
             var eid = col.GetComponentInParent<EntityId>();
             if (eid == null) continue;
@@ -194,12 +236,12 @@ public sealed class SelectionAndOrders : MonoBehaviour
         return Rect.MinMaxRect(min.x, min.y, max.x, max.y);
     }
 
+    // ---------------- Selection helpers ----------------
+
     private void ClearSelection()
     {
         foreach (var vis in selectedVisuals)
-        {
             if (vis != null) vis.SetSelected(false);
-        }
 
         selectedIds.Clear();
         selectedVisuals.Clear();
@@ -223,16 +265,21 @@ public sealed class SelectionAndOrders : MonoBehaviour
     {
         if (selectedIds.Count == 0) return;
 
-        Vector2 world = GetMouseWorld();
-        Collider2D ground = Physics2D.OverlapPoint(world, groundMask);
-        if (!ground) return;
+        Vector2 worldPos = cam.ScreenToWorldPoint(_mousePos);
+
+        // ✅ Якщо groundMask не налаштований — дозволяємо рух без перевірки
+        if (groundMask.value != 0)
+        {
+            Collider2D ground = Physics2D.OverlapPoint(worldPos, groundMask);
+            if (!ground) return;
+        }
 
         foreach (int unitId in selectedIds)
         {
             if (lobby != null && lobby.inMatch)
-                lobby.CmdMove(unitId, world.x, world.y);
+                lobby.CmdMove(unitId, worldPos.x, worldPos.y);
             else if (sim != null)
-                sim.Commands.Enqueue(new MoveCommand(unitId, world));
+                sim.Commands.Enqueue(new MoveCommand(unitId, worldPos));
         }
     }
 
@@ -252,84 +299,14 @@ public sealed class SelectionAndOrders : MonoBehaviour
         if (selectedIds.Count == 0 || lobby == null || !lobby.inMatch) return;
 
         foreach (int attackerId in selectedIds)
-        {
             lobby.CmdAttackBuilding(attackerId, targetBuildingId);
-        }
     }
 
     private void IssueStop()
     {
-        if (selectedIds.Count == 0) return;
+        if (selectedIds.Count == 0 || lobby == null || !lobby.inMatch) return;
 
-        if (lobby != null && lobby.inMatch)
-        {
-            foreach (int unitId in selectedIds)
-            {
-                lobby.CmdStop(unitId);
-            }
-            return;
-        }
-    }
-
-    // ---------------- Input ----------------
-
-    private bool LeftDown()
-    {
-#if ENABLE_INPUT_SYSTEM
-        return Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame;
-#else
-        return Input.GetMouseButtonDown(0);
-#endif
-    }
-
-    private bool LeftHeld()
-    {
-#if ENABLE_INPUT_SYSTEM
-        return Mouse.current != null && Mouse.current.leftButton.isPressed;
-#else
-        return Input.GetMouseButton(0);
-#endif
-    }
-
-    private bool LeftUp()
-    {
-#if ENABLE_INPUT_SYSTEM
-        return Mouse.current != null && Mouse.current.leftButton.wasReleasedThisFrame;
-#else
-        return Input.GetMouseButtonUp(0);
-#endif
-    }
-
-    private bool RightDown()
-    {
-#if ENABLE_INPUT_SYSTEM
-        return Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame;
-#else
-        return Input.GetMouseButtonDown(1);
-#endif
-    }
-
-    private bool StopDown()
-    {
-#if ENABLE_INPUT_SYSTEM
-        return Keyboard.current != null && Keyboard.current.sKey.wasPressedThisFrame;
-#else
-        return Input.GetKeyDown(KeyCode.S);
-#endif
-    }
-
-    private Vector2 GetMouseScreen()
-    {
-#if ENABLE_INPUT_SYSTEM
-        return Mouse.current != null ? Mouse.current.position.ReadValue() : (Vector2)Input.mousePosition;
-#else
-        return Input.mousePosition;
-#endif
-    }
-
-    private Vector2 GetMouseWorld()
-    {
-        Vector2 screen = GetMouseScreen();
-        return cam.ScreenToWorldPoint(screen);
+        foreach (int unitId in selectedIds)
+            lobby.CmdStop(unitId);
     }
 }

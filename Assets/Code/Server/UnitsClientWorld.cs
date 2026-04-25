@@ -14,8 +14,17 @@ public class UnitDto
     public int maxHp;
 }
 
-
 [Serializable]
+public class PlayerDto
+{
+    public int playerId;
+    public int gold;
+    public int lumber;
+    public int usedSupply;
+    public int maxSupply;
+}
+
+[System.Serializable]
 public class BuildingDto
 {
     public int id;
@@ -25,6 +34,10 @@ public class BuildingDto
     public float y;
     public int hp;
     public int maxHp;
+
+    public string currentUnit;
+    public float trainTime;
+    public int queueSize;
 }
 
 [Serializable]
@@ -34,6 +47,7 @@ public class StateMsg
     public int tick;
     public UnitDto[] units;
     public BuildingDto[] buildings;
+    public PlayerDto[] players;
 }
 
 public class UnitsClientWorld : MonoBehaviour
@@ -52,6 +66,22 @@ public class UnitsClientWorld : MonoBehaviour
 
     public IEnumerable<UnitView> AllUnits() => _byId.Values;
 
+    public GameObject warriorPrefab;
+    public GameObject archerPrefab;
+    public GameObject workerPrefab;
+
+    private Dictionary<string, GameObject> prefabMap;
+
+    public void Awake()
+    {
+        prefabMap = new Dictionary<string, GameObject>()
+        {
+            { "swordsman", warriorPrefab },
+            { "archer", archerPrefab },
+            { "worker", workerPrefab }
+        };
+    }
+    
     public bool TryRaycastUnitUnderMouse(out UnitView unit)
     {
         unit = null;
@@ -115,19 +145,26 @@ public class UnitsClientWorld : MonoBehaviour
 
     private UnitView Spawn(UnitDto dto)
     {
-        if (unitPrefab == null)
+        if (!prefabMap.TryGetValue(dto.unitType, out var prefab))
         {
-            Debug.LogError("UnitsClientWorld: unitPrefab is not set!");
+            Debug.LogError($"No prefab for unit type: {dto.unitType}");
             return null;
         }
 
         var pos = new Vector3(dto.x, dto.y, 0f);
-        var view = Instantiate(unitPrefab, pos, Quaternion.identity, unitsParent);
+        var go = Instantiate(prefab, pos, Quaternion.identity, unitsParent);
+
+        var view = go.GetComponent<UnitView>();
+        if (view == null)
+        {
+            Debug.LogError($"Prefab {dto.unitType} has no UnitView!");
+            return null;
+        }
 
         view.Bind(dto.id);
         view.owner = dto.owner;
         view.ApplyHp(dto.hp, dto.maxHp);
-        view.name = $"Unit_{dto.id}_owner{dto.owner}";
+        view.name = $"Unit_{dto.id}_{dto.unitType}_owner{dto.owner}";
 
         return view;
     }
