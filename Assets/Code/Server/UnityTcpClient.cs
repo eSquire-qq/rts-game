@@ -30,7 +30,6 @@ public class UnityTcpClient : MonoBehaviour
     {
         while (_incoming.TryDequeue(out var line))
         {
-            Debug.Log("[FROM SERVER] " + line);
         }
         if (Input.GetKeyDown(KeyCode.C))
             SendLine("{\"type\":\"create_lobby\"}");
@@ -54,12 +53,10 @@ public class UnityTcpClient : MonoBehaviour
             _running = true;
             _recvThread = new Thread(ReceiveLoop) { IsBackground = true };
             _recvThread.Start();
-
-            Debug.Log($"Connected to {host}:{port}");
+            
         }
         catch (Exception e)
         {
-            Debug.LogError("Connect failed: " + e);
         }
     }
 
@@ -69,7 +66,6 @@ public class UnityTcpClient : MonoBehaviour
         {
             if (_writer == null) return;
             _writer.WriteLine(json); // один JSON = один рядок
-            Debug.Log("[TO SERVER] " + json);
         }
         catch (Exception e)
         {

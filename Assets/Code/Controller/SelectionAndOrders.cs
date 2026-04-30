@@ -267,7 +267,30 @@ public sealed class SelectionAndOrders : MonoBehaviour
 
         Vector2 worldPos = cam.ScreenToWorldPoint(_mousePos);
 
-        // ✅ Якщо groundMask не налаштований — дозволяємо рух без перевірки
+        // 1. Спочатку шукаємо ресурс серед усіх collider у точці
+        Collider2D[] hits = Physics2D.OverlapPointAll(worldPos);
+
+        foreach (var hit in hits)
+        {
+            var resource = hit.GetComponentInParent<ResourceView>();
+            if (resource != null)
+            {
+                Debug.Log("RESOURCE CLICKED id=" + resource.resourceId + " type=" + resource.resourceType);
+
+                foreach (int unitId in selectedIds)
+                {
+                    if (lobby != null && lobby.inMatch)
+                    {
+                        Debug.Log("SEND GATHER unit=" + unitId + " res=" + resource.resourceId);
+                        lobby.CmdGather(unitId, resource.resourceId);
+                    }
+                }
+
+                return;
+            }
+        }
+
+        // 2. Якщо ресурсу нема — звичайний move
         if (groundMask.value != 0)
         {
             Collider2D ground = Physics2D.OverlapPoint(worldPos, groundMask);
@@ -282,7 +305,6 @@ public sealed class SelectionAndOrders : MonoBehaviour
                 sim.Commands.Enqueue(new MoveCommand(unitId, worldPos));
         }
     }
-
     private void IssueAttack(int targetId)
     {
         if (selectedIds.Count == 0 || lobby == null || !lobby.inMatch) return;

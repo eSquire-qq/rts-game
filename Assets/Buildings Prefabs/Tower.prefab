@@ -34,10 +34,10 @@ RectTransform:
   - {fileID: 8113003158843471014}
   m_Father: {fileID: 1276692995331544057}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -6.007, y: -6.1}
-  m_SizeDelta: {x: 19.556, y: 8.649}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &3689659079798038441
 MonoBehaviour:
@@ -170,8 +170,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0.81, y: 2.37}
-  m_SizeDelta: {x: 78.5581, y: 51.4495}
+  m_AnchoredPosition: {x: 0, y: 1.6}
+  m_SizeDelta: {x: 26.9186, y: 8.6959}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!223 &7503510565619145751
 Canvas:
@@ -270,8 +270,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0.25}
   m_AnchorMax: {x: 1, y: 0.75}
-  m_AnchoredPosition: {x: -1.89, y: 0}
-  m_SizeDelta: {x: 3.78, y: 0}
+  m_AnchoredPosition: {x: -0.18099976, y: 0.03499961}
+  m_SizeDelta: {x: -8.048, y: -1.347}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &136999080146523685
 CanvasRenderer:
@@ -310,7 +310,7 @@ MonoBehaviour:
   m_FillClockwise: 1
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
-  m_PixelsPerUnitMultiplier: 1
+  m_PixelsPerUnitMultiplier: 5
 --- !u!1 &4981900745833063338
 GameObject:
   m_ObjectHideFlags: 0
@@ -345,8 +345,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: -1.8900013, y: 0.22599983}
-  m_SizeDelta: {x: 3.78, y: -3.873}
+  m_AnchoredPosition: {x: -0.18099976, y: 0.19000006}
+  m_SizeDelta: {x: -8.048, y: -5.36}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &3432401596456734269
 CanvasRenderer:
@@ -385,7 +385,7 @@ MonoBehaviour:
   m_FillClockwise: 1
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
-  m_PixelsPerUnitMultiplier: 1
+  m_PixelsPerUnitMultiplier: 5
 --- !u!1 &7303643088471104919
 GameObject:
   m_ObjectHideFlags: 0

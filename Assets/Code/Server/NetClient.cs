@@ -65,11 +65,9 @@ public class NetClient : MonoBehaviour
         {
             _stream.Write(bytes, 0, bytes.Length);
             _stream.Flush();
-            Debug.Log("[C->S] " + json);
         }
         catch (Exception e)
         {
-            Debug.LogWarning("Send failed: " + e.Message);
             Cleanup("send_failed");
         }
     }
@@ -102,7 +100,6 @@ public class NetClient : MonoBehaviour
                         if (!string.IsNullOrEmpty(line))
                         {
                             MainThreadDispatcher.Enqueue(() => {
-                                Debug.Log("[S->C] " + line);
                                 OnLine?.Invoke(line);
                             });
                         }

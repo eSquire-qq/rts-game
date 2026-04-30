@@ -1,23 +1,72 @@
 ﻿using UnityEngine;
+using UnityEngine.EventSystems;
 
 public class MouseClickManager : MonoBehaviour
 {
-    void Update()
+    private Camera cam;
+    private UnitsClientWorld unitsWorld;
+    private BuildingsClientWorld buildingsWorld;
+
+    private void Awake()
     {
-        if (Input.GetMouseButtonDown(0))
+        cam = Camera.main;
+        unitsWorld = FindFirstObjectByType<UnitsClientWorld>();
+        buildingsWorld = FindFirstObjectByType<BuildingsClientWorld>();
+    }
+
+    private void Update()
+    {
+        if (!Input.GetMouseButtonDown(0)) return;
+
+        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
+            return;
+
+        if (cam == null)
+            cam = Camera.main;
+
+        if (cam == null) return;
+
+        Vector2 mousePos = cam.ScreenToWorldPoint(Input.mousePosition);
+        Collider2D[] hits = Physics2D.OverlapPointAll(mousePos);
+
+        if (CommandPanelUI.Instance != null && CommandPanelUI.Instance.HasCommandMode())
         {
-            Vector2 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+            bool executed = CommandPanelUI.Instance.ExecuteCommand(mousePos, hits);
+            if (executed) return;
+        }
 
-            RaycastHit2D hit = Physics2D.Raycast(mousePos, Vector2.zero);
+        if (hits == null || hits.Length == 0)
+        {
+            SelectionInfoUI.Instance?.Hide();
+            return;
+        }
 
-            if (hit.collider != null)
+        foreach (var hit in hits)
+        {
+            var unit = hit.GetComponentInParent<UnitView>();
+            if (unit != null)
             {
-                var building = hit.collider.GetComponent<BuildingClickHandler>();
-                if (building != null)
+                if (unitsWorld != null && unitsWorld.TryGetUnitDto(unit.GetId(), out var unitDto))
                 {
-                    building.OnClicked();
+                    SelectionInfoUI.Instance?.ShowUnit(unitDto);
+                    return;
                 }
             }
         }
+
+        foreach (var hit in hits)
+        {
+            var buildingClick = hit.GetComponentInParent<BuildingClickHandler>();
+            if (buildingClick != null)
+            {
+                if (buildingsWorld != null && buildingsWorld.TryGetBuildingDto(buildingClick.buildingId, out var buildingDto))
+                {
+                    SelectionInfoUI.Instance?.ShowBuilding(buildingDto);
+                    return;
+                }
+            }
+        }
+
+        SelectionInfoUI.Instance?.Hide();
     }
 }

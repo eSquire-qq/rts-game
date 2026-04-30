@@ -49,8 +49,7 @@ public class BuildingView : MonoBehaviour
 
         if (healthBar != null)
         {
-            healthBar.SetMaxHealth(maxHp);
-            healthBar.SetHealth(hp);
+            healthBar.SetHealth(hp, maxHp);
         }
 
         name = $"Building_{entityId.Id}_{type}_owner{owner}";

@@ -7,23 +7,18 @@ public class HealthBarScript : MonoBehaviour
     [SerializeField] private Gradient gradient;
     [SerializeField] private Image fill;
 
-    private float maxHealth = 100f;
-
-    public void SetMaxHealth(float health)
+    public void SetHealth(float health, float maxHealth)
     {
-        maxHealth = health;
-        slider.maxValue = health;
-        slider.value = health;
-        fill.color = gradient.Evaluate(1f);
-        slider.gameObject.SetActive(false);
-    }
+        if (slider == null) return;
 
-    public void SetHealth(float health)
-    {
         slider.maxValue = maxHealth;
         slider.value = health;
+        
         slider.gameObject.SetActive(health < maxHealth);
 
-        fill.color = gradient.Evaluate(slider.normalizedValue);
+        if (fill != null && gradient != null)
+        {
+            fill.color = gradient.Evaluate(slider.normalizedValue);
+        }
     }
 }

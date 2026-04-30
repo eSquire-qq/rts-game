@@ -39,7 +39,15 @@ public class BuildingDto
     public float trainTime;
     public int queueSize;
 }
-
+[System.Serializable]
+public class ResourceDto
+{
+    public int id;
+    public string type;
+    public float x;
+    public float y;
+    public int amount;
+}
 [Serializable]
 public class StateMsg
 {
@@ -48,6 +56,8 @@ public class StateMsg
     public UnitDto[] units;
     public BuildingDto[] buildings;
     public PlayerDto[] players;
+    public ResourceDto[] resources;
+
 }
 
 public class UnitsClientWorld : MonoBehaviour
@@ -63,7 +73,7 @@ public class UnitsClientWorld : MonoBehaviour
     public bool TryGetUnit(int id, out UnitView view) => _byId.TryGetValue(id, out view);
 
     public UnitView TryGetView(int id) => _byId.TryGetValue(id, out var v) ? v : null;
-
+    public ResourceDto[] resources;
     public IEnumerable<UnitView> AllUnits() => _byId.Values;
 
     public GameObject warriorPrefab;
@@ -71,6 +81,7 @@ public class UnitsClientWorld : MonoBehaviour
     public GameObject workerPrefab;
 
     private Dictionary<string, GameObject> prefabMap;
+    private readonly Dictionary<int, UnitDto> _dtoById = new();
 
     public void Awake()
     {
@@ -80,6 +91,11 @@ public class UnitsClientWorld : MonoBehaviour
             { "archer", archerPrefab },
             { "worker", workerPrefab }
         };
+    }
+    
+    public bool TryGetUnitDto(int id, out UnitDto dto)
+    {
+        return _dtoById.TryGetValue(id, out dto);
     }
     
     public bool TryRaycastUnitUnderMouse(out UnitView unit)
@@ -111,6 +127,7 @@ public class UnitsClientWorld : MonoBehaviour
             if (u == null) continue;
 
             aliveIds.Add(u.id);
+            _dtoById[u.id] = u;
 
             if (!_byId.TryGetValue(u.id, out var view) || view == null)
             {
@@ -122,6 +139,7 @@ public class UnitsClientWorld : MonoBehaviour
             view.owner = u.owner;
             view.ApplyServerPos(u.x, u.y);
             view.ApplyHp(u.hp, u.maxHp);
+            SelectionInfoUI.Instance?.UpdateUnit(u);
         }
         
         var toRemove = new List<int>();
@@ -140,6 +158,7 @@ public class UnitsClientWorld : MonoBehaviour
         for (int i = 0; i < toRemove.Count; i++)
         {
             _byId.Remove(toRemove[i]);
+            _dtoById.Remove(toRemove[i]);
         }
     }
 

@@ -41,8 +41,7 @@ public class UnitView : MonoBehaviour
 
         if (healthBar != null)
         {
-            healthBar.SetMaxHealth(maxHp);
-            healthBar.SetHealth(hp);
+            healthBar.SetHealth(hp, maxHp);
         }
     }
 

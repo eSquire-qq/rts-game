@@ -29,7 +29,8 @@ public class LobbyClient : MonoBehaviour
     public string lobbyId;
     public string matchId;
     public bool inMatch;
-
+    
+    public ResourcesClientWorld resourcesWorld;
     public UnitsClientWorld world;
     public BuildingsClientWorld buildingsWorld;
     
@@ -41,7 +42,11 @@ public class LobbyClient : MonoBehaviour
         
         if (net == null) net = GetComponent<NetClient>();
         if (world == null) world = FindFirstObjectByType<UnitsClientWorld>();
+        
         if(buildingsWorld == null) buildingsWorld = FindObjectOfType<BuildingsClientWorld>();
+        
+        if (resourcesWorld == null)
+            resourcesWorld = FindFirstObjectByType<ResourcesClientWorld>();
     }
 
     private void Start()
@@ -188,6 +193,7 @@ public class LobbyClient : MonoBehaviour
                 world?.ApplyState(msg);
                 buildingsWorld?.ApplyState(msg);
                 playerUI?.UpdateFromState(msg);
+                resourcesWorld?.ApplyState(msg);
             }
             return;
         }
@@ -201,6 +207,7 @@ public class LobbyClient : MonoBehaviour
             return;
         }
 
+        
         if (json.Contains("\"type\":\"lobby_created\""))
         {
             var msg = JsonUtility.FromJson<LobbyCreatedMsg>(json);
@@ -220,7 +227,9 @@ public class LobbyClient : MonoBehaviour
         {
             var msg = JsonUtility.FromJson<MatchStartMsg>(json);
             matchId = msg.matchId;
-            inMatch = true; // ← це має спрацювати
+            inMatch = true;
+            Debug.Log("Match started id=" + matchId);
+            return;
         }
 
         if (json.Contains("\"type\":\"error\""))
@@ -231,6 +240,11 @@ public class LobbyClient : MonoBehaviour
         
         Debug.Log("Unknown msg: " + json);
         topBarUI?.SetPlayerId(myPlayerId);
+    }
+    public void CmdGather(int unitId, int resourceId)
+    {
+        Debug.Log("CMD GATHER " + unitId + " -> " + resourceId);
+        SendLine("{\"type\":\"cmd_gather\",\"unitId\":" + unitId + ",\"resourceId\":" + resourceId + "}");
     }
     public void SendBuild(string buildingType)
     {

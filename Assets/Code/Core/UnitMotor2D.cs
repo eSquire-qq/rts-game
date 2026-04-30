@@ -8,7 +8,6 @@ public sealed class UnitMotor2D : MonoBehaviour
     private Rigidbody2D rb;
     private Vector2 target;
     private bool hasTarget;
-    public bool HasTarget => hasTarget;
     public Vector2 Target => target;
 
     private void Awake()

@@ -36,7 +36,7 @@ public sealed class GameSimulation : MonoBehaviour
         {
             if (unitsById.TryGetValue(move.EntityId, out var motor))
             {
-                // Передаємо ціль мотору.
+                // Передає ціль
                 motor.SetMoveTarget(move.Target);
             }
         }

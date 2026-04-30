@@ -3,7 +3,6 @@ using UnityEngine;
 
 public class BuildingsClientWorld : MonoBehaviour
 {
-    public BuildingView buildingPrefab;
     public Transform buildingsParent;
 
     public GameObject barrackPrefab;
@@ -53,10 +52,7 @@ public class BuildingsClientWorld : MonoBehaviour
 
             view.ApplyServerState(b.x, b.y, b.hp, b.maxHp, b.type, b.owner);
 
-            if (BuildingUI.Instance != null && BuildingUI.Instance.IsShowingBuilding(b.id))
-            {
-                BuildingUI.Instance.UpdateBuildingInfo(b);
-            }
+            SelectionInfoUI.Instance?.UpdateBuilding(b);
         }
 
         var toRemove = new List<int>();
@@ -81,21 +77,22 @@ public class BuildingsClientWorld : MonoBehaviour
 
     private BuildingView Spawn(BuildingDto dto)
     {
-        GameObject prefabToSpawn = null;
-
-        if (buildingsPrefabMap != null)
-            buildingsPrefabMap.TryGetValue(dto.type, out prefabToSpawn);
+        if (buildingsPrefabMap == null || !buildingsPrefabMap.TryGetValue(dto.type, out var prefabToSpawn))
+        {
+            Debug.LogError("No prefab for building type: " + dto.type);
+            return null;
+        }
 
         if (prefabToSpawn == null)
         {
-            Debug.LogError("No prefab for building type: " + dto.type);
+            Debug.LogError("Prefab is NULL for building type: " + dto.type);
             return null;
         }
 
         var pos = new Vector3(dto.x, dto.y, 0f);
         var obj = Instantiate(prefabToSpawn, pos, Quaternion.identity, buildingsParent);
 
-        var view = obj.GetComponent<BuildingView>();
+        var view = obj.GetComponentInChildren<BuildingView>();
         if (view == null)
         {
             Debug.LogError("BuildingView NOT FOUND on prefab: " + dto.type);
@@ -106,15 +103,11 @@ public class BuildingsClientWorld : MonoBehaviour
         view.Bind(dto.id);
         view.ApplyServerState(dto.x, dto.y, dto.hp, dto.maxHp, dto.type, dto.owner);
 
-        var clickHandler = obj.GetComponent<BuildingClickHandler>();
+        var clickHandler = obj.GetComponentInChildren<BuildingClickHandler>();
         if (clickHandler != null)
-        {
             clickHandler.buildingId = dto.id;
-        }
         else
-        {
             Debug.LogError("BuildingClickHandler NOT FOUND on prefab: " + dto.type);
-        }
 
         obj.name = $"Building_{dto.id}_{dto.type}_owner{dto.owner}";
 

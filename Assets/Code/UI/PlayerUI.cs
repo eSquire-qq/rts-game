@@ -1,5 +1,5 @@
-﻿using UnityEngine;
-using TMPro;
+﻿using TMPro;
+using UnityEngine;
 
 public class PlayerUI : MonoBehaviour
 {
@@ -11,29 +11,20 @@ public class PlayerUI : MonoBehaviour
 
     public void UpdateFromState(StateMsg state)
     {
-        Debug.Log("UpdateFromState CALLED");
-
-        if (state == null)
-        {
-            Debug.Log("STATE NULL");
-            return;
-        }
-
-        if (state.players == null)
-        {
-            Debug.Log("PLAYERS NULL");
-            return;
-        }
+        if (state == null || state.players == null) return;
 
         foreach (var p in state.players)
         {
-            Debug.Log("PLAYER: " + p.playerId + " GOLD: " + p.gold);
-
             if (p.playerId != myPlayerId) continue;
 
-            goldText.text = "" + p.gold;
-            lumberText.text = "" + p.lumber;
-            supplyText.text = "" + p.usedSupply + " / " + p.maxSupply;
+            if (goldText != null)
+                goldText.text = p.gold.ToString();
+
+            if (lumberText != null)
+                lumberText.text = p.lumber.ToString();
+
+            if (supplyText != null)
+                supplyText.text = $"{p.usedSupply} / {p.maxSupply}";
 
             return;
         }
