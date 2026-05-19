@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 9005050397142354608}
   - component: {fileID: 3957680320362594439}
   - component: {fileID: 7200978461782047109}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: Monastery
   m_TagString: Untagged
   m_Icon: {fileID: 0}

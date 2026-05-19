@@ -127,4 +127,10 @@ public class BuildPlacementManager : MonoBehaviour
             c.enabled = false;
         }
     }
+    
+    public void SetLobby(LobbyClient newLobby)
+    {
+        lobby = newLobby;
+    }
+    
 }

@@ -12,14 +12,26 @@ public class CommandButtonUI : MonoBehaviour
     {
         if (button == null)
             button = GetComponent<Button>();
+
+        if (label == null)
+            label = GetComponentInChildren<TextMeshProUGUI>(true);
+
+        if (icon == null)
+            icon = GetComponentInChildren<Image>(true);
     }
 
     public void Setup(string text, Sprite sprite, UnityEngine.Events.UnityAction action)
     {
         gameObject.SetActive(true);
 
+        if (button == null)
+            button = GetComponent<Button>();
+
         if (label != null)
+        {
             label.text = text;
+            label.enableWordWrapping = true;
+        }
 
         if (icon != null)
         {
@@ -27,10 +39,17 @@ public class CommandButtonUI : MonoBehaviour
             icon.enabled = sprite != null;
         }
 
-        button.onClick.RemoveAllListeners();
-        button.onClick.AddListener(action);
-        button.interactable = true;
+        if (button != null)
+        {
+            button.onClick.RemoveAllListeners();
+
+            if (action != null)
+                button.onClick.AddListener(action);
+
+            button.interactable = true;
+        }
     }
+
     public void Setup(string text, UnityEngine.Events.UnityAction action)
     {
         Setup(text, null, action);

@@ -43,16 +43,28 @@ public class BuildingView : MonoBehaviour
     public void ApplyServerState(float x, float y, int newHp, int newMaxHp, string type, int ownerId)
     {
         transform.position = new Vector3(x, y, 0f);
+
         hp = newHp;
         maxHp = newMaxHp;
         owner = ownerId;
+
+        if (entityId == null)
+            entityId = GetComponent<EntityId>();
+
+        if (entityId == null)
+            entityId = GetComponentInParent<EntityId>();
+
+        if (healthBar == null)
+            healthBar = GetComponentInChildren<HealthBarScript>();
 
         if (healthBar != null)
         {
             healthBar.SetHealth(hp, maxHp);
         }
 
-        name = $"Building_{entityId.Id}_{type}_owner{owner}";
+        int safeId = entityId != null ? entityId.Id : Id;
+
+        name = $"Building_{safeId}_{type}_owner{owner}";
     }
 
     public int GetId()

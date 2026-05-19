@@ -16,12 +16,20 @@ public class CommandPanelUI : MonoBehaviour
     [SerializeField] private LobbyClient lobby;
     [SerializeField] private CommandButtonUI[] buttons;
 
-    [Header("Icons")]
+    [Header("Command Icons")]
     [SerializeField] private Sprite moveIcon;
     [SerializeField] private Sprite stopIcon;
     [SerializeField] private Sprite attackIcon;
     [SerializeField] private Sprite gatherIcon;
     [SerializeField] private Sprite buildIcon;
+
+    [Header("Building Icons")]
+    [SerializeField] private Sprite houseIcon;
+    [SerializeField] private Sprite barracksIcon;
+    [SerializeField] private Sprite archeryIcon;
+    [SerializeField] private Sprite backIcon;
+
+    [Header("Train Icons")]
     [SerializeField] private Sprite swordIcon;
     [SerializeField] private Sprite archerIcon;
 
@@ -57,7 +65,12 @@ public class CommandPanelUI : MonoBehaviour
         selectedBuildingType = "";
         mode = CommandMode.None;
 
-        HideAll();
+        ShowUnitMainCommands();
+    }
+
+    private void ShowUnitMainCommands()
+    {
+        HideButtonsOnly();
 
         int i = 0;
 
@@ -69,8 +82,7 @@ public class CommandPanelUI : MonoBehaviour
         Add(ref i, "Stop", stopIcon, () =>
         {
             mode = CommandMode.None;
-            if (lobby != null)
-                lobby.CmdStop(selectedUnitId);
+            lobby?.CmdStop(selectedUnitId);
         });
 
         Add(ref i, "Attack", attackIcon, () =>
@@ -85,24 +97,42 @@ public class CommandPanelUI : MonoBehaviour
                 mode = CommandMode.Gather;
             });
 
-            Add(ref i, "House", buildIcon, () =>
+            Add(ref i, "Build", buildIcon, () =>
             {
                 mode = CommandMode.None;
-                BuildPlacementManager.Instance?.StartPlacement("house");
-            });
-
-            Add(ref i, "Barracks", buildIcon, () =>
-            {
-                mode = CommandMode.None;
-                BuildPlacementManager.Instance?.StartPlacement("barracks");
-            });
-
-            Add(ref i, "Archery", buildIcon, () =>
-            {
-                mode = CommandMode.None;
-                BuildPlacementManager.Instance?.StartPlacement("archery");
+                ShowBuildMenu();
             });
         }
+    }
+
+    private void ShowBuildMenu()
+    {
+        HideButtonsOnly();
+
+        int i = 0;
+
+        Add(ref i, "House\n75G 25L", houseIcon, () =>
+        {
+            BuildPlacementManager.Instance?.StartPlacement("house");
+            ShowUnitMainCommands();
+        });
+
+        Add(ref i, "Barracks\n200G 50L", barracksIcon, () =>
+        {
+            BuildPlacementManager.Instance?.StartPlacement("barracks");
+            ShowUnitMainCommands();
+        });
+
+        Add(ref i, "Archery\n150G 100L", archeryIcon, () =>
+        {
+            BuildPlacementManager.Instance?.StartPlacement("archery");
+            ShowUnitMainCommands();
+        });
+
+        Add(ref i, "Back", backIcon, () =>
+        {
+            ShowUnitMainCommands();
+        });
     }
 
     public void ShowForBuilding(BuildingDto building)
@@ -114,7 +144,7 @@ public class CommandPanelUI : MonoBehaviour
         selectedUnitType = "";
         mode = CommandMode.None;
 
-        HideAll();
+        HideButtonsOnly();
 
         int i = 0;
 
@@ -122,16 +152,14 @@ public class CommandPanelUI : MonoBehaviour
         {
             Add(ref i, "Sword", swordIcon, () =>
             {
-                if (lobby != null)
-                    lobby.CmdTrainUnit(selectedBuildingId, "swordsman");
+                lobby?.CmdTrainUnit(selectedBuildingId, "swordsman");
             });
         }
         else if (selectedBuildingType == "archery")
         {
             Add(ref i, "Archer", archerIcon, () =>
             {
-                if (lobby != null)
-                    lobby.CmdTrainUnit(selectedBuildingId, "archer");
+                lobby?.CmdTrainUnit(selectedBuildingId, "archer");
             });
         }
     }
@@ -150,20 +178,44 @@ public class CommandPanelUI : MonoBehaviour
 
         if (mode == CommandMode.Attack)
         {
-            foreach (var hit in hits)
+            foreach (Collider2D hit in hits)
             {
-                var targetUnit = hit.GetComponentInParent<UnitView>();
+                UnitView targetUnit = hit.GetComponentInParent<UnitView>();
+
                 if (targetUnit != null && targetUnit.GetId() != selectedUnitId)
                 {
+                    UnitView selectedView = FindSelectedUnitView();
+                    if (selectedView != null)
+                        selectedView.PlayAttack();
+
                     lobby.CmdAttack(selectedUnitId, targetUnit.GetId());
                     mode = CommandMode.None;
                     return true;
                 }
 
-                var targetBuilding = hit.GetComponentInParent<BuildingClickHandler>();
+                BuildingClickHandler targetBuilding = hit.GetComponentInParent<BuildingClickHandler>();
+
                 if (targetBuilding != null)
                 {
+                    UnitView selectedView = FindSelectedUnitView();
+                    if (selectedView != null)
+                        selectedView.PlayAttack();
+
                     lobby.CmdAttackBuilding(selectedUnitId, targetBuilding.buildingId);
+                    mode = CommandMode.None;
+                    return true;
+                }
+
+                BuildingView buildingView = hit.GetComponentInParent<BuildingView>();
+                EntityId buildingEntity = hit.GetComponentInParent<EntityId>();
+
+                if (buildingView != null && buildingEntity != null)
+                {
+                    UnitView selectedView = FindSelectedUnitView();
+                    if (selectedView != null)
+                        selectedView.PlayAttack();
+
+                    lobby.CmdAttackBuilding(selectedUnitId, buildingEntity.Id);
                     mode = CommandMode.None;
                     return true;
                 }
@@ -174,9 +226,10 @@ public class CommandPanelUI : MonoBehaviour
 
         if (mode == CommandMode.Gather)
         {
-            foreach (var hit in hits)
+            foreach (Collider2D hit in hits)
             {
-                var resource = hit.GetComponentInParent<ResourceView>();
+                ResourceView resource = hit.GetComponentInParent<ResourceView>();
+
                 if (resource != null)
                 {
                     lobby.CmdGather(selectedUnitId, resource.resourceId);
@@ -191,13 +244,35 @@ public class CommandPanelUI : MonoBehaviour
         return false;
     }
 
+    private UnitView FindSelectedUnitView()
+    {
+        UnitView[] units = FindObjectsByType<UnitView>(FindObjectsSortMode.None);
+
+        foreach (UnitView unit in units)
+        {
+            if (unit != null && unit.GetId() == selectedUnitId)
+                return unit;
+        }
+
+        return null;
+    }
+
     public void HideAll()
     {
         mode = CommandMode.None;
+        selectedUnitId = -1;
+        selectedUnitType = "";
+        selectedBuildingId = -1;
+        selectedBuildingType = "";
 
+        HideButtonsOnly();
+    }
+
+    private void HideButtonsOnly()
+    {
         if (buttons == null) return;
 
-        foreach (var btn in buttons)
+        foreach (CommandButtonUI btn in buttons)
         {
             if (btn != null)
                 btn.Hide();
@@ -211,5 +286,10 @@ public class CommandPanelUI : MonoBehaviour
 
         buttons[index].Setup(text, icon, action);
         index++;
+    }
+
+    public void SetLobby(LobbyClient newLobby)
+    {
+        lobby = newLobby;
     }
 }

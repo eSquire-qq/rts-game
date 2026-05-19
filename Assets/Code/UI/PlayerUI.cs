@@ -3,6 +3,9 @@ using UnityEngine;
 
 public class PlayerUI : MonoBehaviour
 {
+    [SerializeField] 
+    private TMPro.TextMeshProUGUI messageText;
+    
     public TextMeshProUGUI goldText;
     public TextMeshProUGUI lumberText;
     public TextMeshProUGUI supplyText;
@@ -29,4 +32,13 @@ public class PlayerUI : MonoBehaviour
             return;
         }
     }
+    
+    public void ShowMessage(string message)
+    {
+        if (messageText != null)
+            messageText.text = message;
+
+        Debug.LogWarning(message);
+    }
+    
 }

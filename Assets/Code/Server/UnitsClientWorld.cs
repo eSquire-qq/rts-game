@@ -24,7 +24,7 @@ public class PlayerDto
     public int maxSupply;
 }
 
-[System.Serializable]
+[Serializable]
 public class BuildingDto
 {
     public int id;
@@ -39,7 +39,8 @@ public class BuildingDto
     public float trainTime;
     public int queueSize;
 }
-[System.Serializable]
+
+[Serializable]
 public class ResourceDto
 {
     public int id;
@@ -48,6 +49,7 @@ public class ResourceDto
     public float y;
     public int amount;
 }
+
 [Serializable]
 public class StateMsg
 {
@@ -57,33 +59,24 @@ public class StateMsg
     public BuildingDto[] buildings;
     public PlayerDto[] players;
     public ResourceDto[] resources;
-
 }
 
 public class UnitsClientWorld : MonoBehaviour
 {
-    [Header("Prefabs")]
-    public UnitView unitPrefab;
-
     [Header("Optional parent for spawned units")]
     public Transform unitsParent;
 
-    private readonly Dictionary<int, UnitView> _byId = new Dictionary<int, UnitView>();
-
-    public bool TryGetUnit(int id, out UnitView view) => _byId.TryGetValue(id, out view);
-
-    public UnitView TryGetView(int id) => _byId.TryGetValue(id, out var v) ? v : null;
-    public ResourceDto[] resources;
-    public IEnumerable<UnitView> AllUnits() => _byId.Values;
-
+    [Header("Prefabs")]
     public GameObject warriorPrefab;
     public GameObject archerPrefab;
     public GameObject workerPrefab;
 
     private Dictionary<string, GameObject> prefabMap;
+
+    private readonly Dictionary<int, UnitView> _byId = new();
     private readonly Dictionary<int, UnitDto> _dtoById = new();
 
-    public void Awake()
+    private void Awake()
     {
         prefabMap = new Dictionary<string, GameObject>()
         {
@@ -92,23 +85,38 @@ public class UnitsClientWorld : MonoBehaviour
             { "worker", workerPrefab }
         };
     }
-    
+
+    public bool TryGetUnit(int id, out UnitView view)
+    {
+        return _byId.TryGetValue(id, out view);
+    }
+
+    public UnitView TryGetView(int id)
+    {
+        return _byId.TryGetValue(id, out var view) ? view : null;
+    }
+
     public bool TryGetUnitDto(int id, out UnitDto dto)
     {
         return _dtoById.TryGetValue(id, out dto);
     }
-    
+
+    public IEnumerable<UnitView> AllUnits()
+    {
+        return _byId.Values;
+    }
+
     public bool TryRaycastUnitUnderMouse(out UnitView unit)
     {
         unit = null;
 
-        var cam = Camera.main;
+        Camera cam = Camera.main;
         if (cam == null) return false;
 
-        Vector3 wp = cam.ScreenToWorldPoint(Input.mousePosition);
-        wp.z = 0f;
+        Vector3 worldPos = cam.ScreenToWorldPoint(Input.mousePosition);
+        worldPos.z = 0f;
 
-        var hit = Physics2D.Raycast(wp, Vector2.zero);
+        RaycastHit2D hit = Physics2D.Raycast(worldPos, Vector2.zero);
         if (hit.collider == null) return false;
 
         unit = hit.collider.GetComponentInParent<UnitView>();
@@ -118,31 +126,32 @@ public class UnitsClientWorld : MonoBehaviour
     public void ApplyState(StateMsg state)
     {
         if (state == null || state.units == null) return;
-        
-        var aliveIds = new HashSet<int>();
 
-        for (int i = 0; i < state.units.Length; i++)
+        HashSet<int> aliveIds = new();
+
+        foreach (UnitDto unit in state.units)
         {
-            var u = state.units[i];
-            if (u == null) continue;
+            if (unit == null) continue;
 
-            aliveIds.Add(u.id);
-            _dtoById[u.id] = u;
+            aliveIds.Add(unit.id);
+            _dtoById[unit.id] = unit;
 
-            if (!_byId.TryGetValue(u.id, out var view) || view == null)
+            if (!_byId.TryGetValue(unit.id, out UnitView view) || view == null)
             {
-                view = Spawn(u);
+                view = Spawn(unit);
                 if (view == null) continue;
-                _byId[u.id] = view;
+
+                _byId[unit.id] = view;
             }
 
-            view.owner = u.owner;
-            view.ApplyServerPos(u.x, u.y);
-            view.ApplyHp(u.hp, u.maxHp);
-            SelectionInfoUI.Instance?.UpdateUnit(u);
+            view.owner = unit.owner;
+            view.ApplyServerPos(unit.x, unit.y);
+            view.ApplyHp(unit.hp, unit.maxHp);
+
+            SelectionInfoUI.Instance?.UpdateUnit(unit);
         }
-        
-        var toRemove = new List<int>();
+
+        List<int> toRemove = new();
 
         foreach (var kv in _byId)
         {
@@ -154,36 +163,45 @@ public class UnitsClientWorld : MonoBehaviour
                 toRemove.Add(kv.Key);
             }
         }
-        
-        for (int i = 0; i < toRemove.Count; i++)
+
+        foreach (int id in toRemove)
         {
-            _byId.Remove(toRemove[i]);
-            _dtoById.Remove(toRemove[i]);
+            _byId.Remove(id);
+            _dtoById.Remove(id);
         }
     }
 
     private UnitView Spawn(UnitDto dto)
     {
-        if (!prefabMap.TryGetValue(dto.unitType, out var prefab))
+        if (prefabMap == null || !prefabMap.TryGetValue(dto.unitType, out GameObject prefab))
         {
-            Debug.LogError($"No prefab for unit type: {dto.unitType}");
+            Debug.LogError("No prefab for unit type: " + dto.unitType);
             return null;
         }
 
-        var pos = new Vector3(dto.x, dto.y, 0f);
-        var go = Instantiate(prefab, pos, Quaternion.identity, unitsParent);
+        if (prefab == null)
+        {
+            Debug.LogError("Prefab is null for unit type: " + dto.unitType);
+            return null;
+        }
 
-        var view = go.GetComponent<UnitView>();
+        Vector3 pos = new Vector3(dto.x, dto.y, 0f);
+        GameObject obj = Instantiate(prefab, pos, Quaternion.identity, unitsParent);
+
+        UnitView view = obj.GetComponentInChildren<UnitView>();
+
         if (view == null)
         {
-            Debug.LogError($"Prefab {dto.unitType} has no UnitView!");
+            Debug.LogError("Prefab " + dto.unitType + " has no UnitView!");
+            Destroy(obj);
             return null;
         }
 
         view.Bind(dto.id);
         view.owner = dto.owner;
         view.ApplyHp(dto.hp, dto.maxHp);
-        view.name = $"Unit_{dto.id}_{dto.unitType}_owner{dto.owner}";
+
+        obj.name = $"Unit_{dto.id}_{dto.unitType}_owner{dto.owner}";
 
         return view;
     }
